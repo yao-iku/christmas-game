@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0; text-align:center;">
+  <canvas id="game" width="400" height="400" style="background:#fff; max-width:100%; touch-action:none;"></canvas>
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+
+    let x = 180;
+    let gifts = [];
+    let score = 0;
+
+    setInterval(() => {
+      gifts.push({ x: Math.random() * 360, y: 0 });
+    }, 1000);
+
+    function update() {
+      for (const g of gifts) {
+        g.y += 3;
+      }
+
+      gifts = gifts.filter((g) => {
+        const hit = g.y + 20 >= 360 && g.y <= 400 && g.x + 20 >= x && g.x <= x + 40;
+        if (hit) score += 1;
+        return !hit;
+      });
+
+      draw();
+      requestAnimationFrame(update);
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, 400, 400);
+      ctx.fillStyle = "red";
+      ctx.fillRect(x, 360, 40, 40);
+      ctx.fillStyle = "green";
+      for (const g of gifts) {
+        ctx.fillRect(g.x, g.y, 20, 20);
+      }
+      ctx.fillStyle = "black";
+      ctx.font = "24px sans-serif";
+      ctx.fillText("点数: " + score, 10, 30);
+    }
+
+    // 指（マウス）の位置を、キャンバス内の座標に変換して赤い四角を動かす
+    function moveTo(clientX) {
+      const rect = canvas.getBoundingClientRect();
+      const px = (clientX - rect.left) * (canvas.width / rect.width);
+      x = Math.max(0, Math.min(360, px - 20)); // 四角の中心を指に合わせる
+    }
+
+    // タッチ操作（タブレット・スマホ）
+    canvas.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      moveTo(e.touches[0].clientX);
+    }, { passive: false });
+
+    canvas.addEventListener("touchmove", (e) => {
+      e.preventDefault();
+      moveTo(e.touches[0].clientX);
+    }, { passive: false });
+
+    // マウス操作（パソコンでのテスト用）
+    canvas.addEventListener("mousemove", (e) => {
+      if (e.buttons === 1) moveTo(e.clientX);
+    });
+
+    // キーボード操作（残しておく）
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowLeft")  x -= 10;
+      if (e.key === "ArrowRight") x += 10;
+    });
+
+    update();
+  </script>
+</body>
+</html>
