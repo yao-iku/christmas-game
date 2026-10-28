@@ -4,30 +4,67 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body style="margin:0; text-align:center;">
+<body style="margin:0; text-align:center; font-family:sans-serif;">
   <canvas id="game" width="400" height="400" style="background:#fff; max-width:100%; touch-action:none;"></canvas>
   <script>
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d");
 
-    let x = 180;
-    let gifts = [];
+    const TIME_LIMIT = 30;   // 制限時間（秒）
+    let x = 180;             // 赤い受け皿の位置
+    let items = [];          // 落ちてくるもの（緑=プレゼント / 黒=爆弾）
     let score = 0;
+    let timeLeft = TIME_LIMIT;
+    let state = "playing";   // "playing" か "over"（ゲーム中か終了）
+    let gameOverReason = ""; // 終了理由
 
-    setInterval(() => {
-      gifts.push({ x: Math.random() * 360, y: 0 });
+    // 0.7秒ごとに、プレゼントか爆弾をランダムで出す
+    const spawner = setInterval(() => {
+      if (state !== "playing") return;
+      const isBomb = Math.random() < 0.3; // 約3割が爆弾
+      items.push({
+        x: Math.random() * 360,
+        y: 0,
+        type: isBomb ? "bomb" : "gift",
+      });
+    }, 700);
+
+    // 1秒ごとに残り時間を減らす
+    const timer = setInterval(() => {
+      if (state !== "playing") return;
+      timeLeft -= 1;
+      if (timeLeft <= 0) {
+        timeLeft = 0;
+        endGame("時間切れ！");
+      }
     }, 1000);
 
-    function update() {
-      for (const g of gifts) {
-        g.y += 3;
-      }
+    function endGame(reason) {
+      state = "over";
+      gameOverReason = reason;
+      clearInterval(spawner);
+      clearInterval(timer);
+    }
 
-      gifts = gifts.filter((g) => {
-        const hit = g.y + 20 >= 360 && g.y <= 400 && g.x + 20 >= x && g.x <= x + 40;
-        if (hit) score += 1;
-        return !hit;
-      });
+    function update() {
+      if (state === "playing") {
+        for (const it of items) {
+          it.y += 3;
+        }
+
+        items = items.filter((it) => {
+          const hitBox = it.y + 20 >= 360 && it.y <= 400 && it.x + 20 >= x && it.x <= x + 40;
+          if (hitBox) {
+            if (it.type === "bomb") {
+              endGame("爆弾に触れた！");
+            } else {
+              score += 1;
+            }
+            return false;
+          }
+          return it.y < 400; // 画面の外に出たものは消す
+        });
+      }
 
       draw();
       requestAnimationFrame(update);
@@ -35,44 +72,74 @@
 
     function draw() {
       ctx.clearRect(0, 0, 400, 400);
+
+      // 赤い受け皿
       ctx.fillStyle = "red";
       ctx.fillRect(x, 360, 40, 40);
-      ctx.fillStyle = "green";
-      for (const g of gifts) {
-        ctx.fillRect(g.x, g.y, 20, 20);
+
+      // プレゼント（緑）と爆弾（黒）
+      for (const it of items) {
+        ctx.fillStyle = it.type === "bomb" ? "black" : "green";
+        ctx.fillRect(it.x, it.y, 20, 20);
       }
+
+      // 点数と残り時間
       ctx.fillStyle = "black";
       ctx.font = "24px sans-serif";
+      ctx.textAlign = "left";
       ctx.fillText("点数: " + score, 10, 30);
+      ctx.textAlign = "right";
+      ctx.fillText("残り: " + timeLeft + "秒", 390, 30);
+
+      // 終了画面
+      if (state === "over") {
+        ctx.fillStyle = "rgba(0,0,0,0.6)";
+        ctx.fillRect(0, 0, 400, 400);
+        ctx.fillStyle = "white";
+        ctx.textAlign = "center";
+        ctx.font = "32px sans-serif";
+        ctx.fillText("ゲーム終了", 200, 160);
+        ctx.font = "24px sans-serif";
+        ctx.fillText(gameOverReason, 200, 200);
+        ctx.fillText("点数: " + score + " 点", 200, 240);
+        ctx.font = "18px sans-serif";
+        ctx.fillText("画面をタップでもう一度", 200, 290);
+      }
     }
 
-    // 指（マウス）の位置を、キャンバス内の座標に変換して赤い四角を動かす
+    // 指・マウスの位置を、キャンバス内の座標に変換して受け皿を動かす
     function moveTo(clientX) {
       const rect = canvas.getBoundingClientRect();
       const px = (clientX - rect.left) * (canvas.width / rect.width);
-      x = Math.max(0, Math.min(360, px - 20)); // 四角の中心を指に合わせる
+      x = Math.max(0, Math.min(360, px - 20));
     }
 
-    // タッチ操作（タブレット・スマホ）
+    // 終了後に画面をタップすると、ページを再読み込みしてリスタート
+    function restartIfOver() {
+      if (state === "over") location.reload();
+    }
+
     canvas.addEventListener("touchstart", (e) => {
       e.preventDefault();
-      moveTo(e.touches[0].clientX);
+      restartIfOver();
+      if (state === "playing") moveTo(e.touches[0].clientX);
     }, { passive: false });
 
     canvas.addEventListener("touchmove", (e) => {
       e.preventDefault();
-      moveTo(e.touches[0].clientX);
+      if (state === "playing") moveTo(e.touches[0].clientX);
     }, { passive: false });
 
-    // マウス操作（パソコンでのテスト用）
     canvas.addEventListener("mousemove", (e) => {
-      if (e.buttons === 1) moveTo(e.clientX);
+      if (state === "playing" && e.buttons === 1) moveTo(e.clientX);
     });
 
-    // キーボード操作（残しておく）
+    canvas.addEventListener("click", restartIfOver);
+
     document.addEventListener("keydown", (e) => {
-      if (e.key === "ArrowLeft")  x -= 10;
-      if (e.key === "ArrowRight") x += 10;
+      if (state !== "playing") return;
+      if (e.key === "ArrowLeft")  x = Math.max(0, x - 10);
+      if (e.key === "ArrowRight") x = Math.min(360, x + 10);
     });
 
     update();
