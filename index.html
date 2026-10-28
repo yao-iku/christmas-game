@@ -1,156 +1,154 @@
-<!DOCTYPE html>                                   // HTMLの文書だと宣言する（ブラウザに「これはWebページです」と伝える）
-<html lang="ja">                                  // ページ全体の始まり。言語は日本語
-<head>                                            // ページの設定を書く場所（画面には出ない）
-  <meta charset="UTF-8">                          // 文字コードをUTF-8にして、日本語が壊れんようにする
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">  // スマホ・タブレットで画面幅に合わせて表示する
-</head>                                           // 設定の終わり
-<body style="margin:0; text-align:center; font-family:sans-serif;">  // 画面に出す部分の始まり。余白をなくし、中央寄せ、フォントを整える
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0; text-align:center; font-family:sans-serif;">
   <canvas id="game" width="400" height="400" style="background:#fff; max-width:100%; touch-action:none;"></canvas>
-  // ゲームを描く「画面（キャンバス）」。400×400の白い四角。タッチ時の画面スクロールを止める設定も入っている
-  <script>                                        // ここからJavaScript（ゲームの動き）を書く
-    const canvas = document.getElementById("game");  // HTMLの中のid="game"の画面を取ってきて、canvasという名前にする
-    const ctx = canvas.getContext("2d");          // その画面に絵を描くための「筆」を用意する（2Dの絵）
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
 
     // ★ 追加：プレゼント画像を読み込む（ファイル名は present.png）
-    const giftImg = new Image();                  // 画像を入れておくための箱を作る
-    giftImg.src = "present.png";                  // 箱に present.png を読み込ませる
+    const giftImg = new Image();
+    giftImg.src = "present.png";
 
-    const TIME_LIMIT = 30;                        // 制限時間は30秒（変えたいときはここを変える）
-    let x = 180;                                  // 赤い受け皿の左端の位置（横方向）。最初は真ん中あたり
-    let items = [];                               // 落ちてくるプレゼントと爆弾をまとめるリスト（最初は空っぽ）
-    let score = 0;                                // 点数。最初は0点
-    let timeLeft = TIME_LIMIT;                    // 残り時間を、制限時間（30秒）からスタートさせる
-    let state = "playing";                        // ゲームの状態。"playing"＝遊んでいる最中
-    let gameOverReason = "";                      // 終わった理由を入れる箱。最初は空
+    const TIME_LIMIT = 30;
+    let x = 180;
+    let items = [];
+    let score = 0;
+    let timeLeft = TIME_LIMIT;
+    let state = "playing";
+    let gameOverReason = "";
 
-    const spawner = setInterval(() => {           // 0.7秒（700ms）ごとに、次の処理を繰り返す
-      if (state !== "playing") return;            // ゲームが終わっていたら、何もせず戻る
-      const isBomb = Math.random() < 0.3;         // 0〜1の乱数を作り、0.3より小さければ「爆弾」（約3割）
-      items.push({                                // リストに新しいアイテムを1つ追加する
-        x: Math.random() * 360,                   // 横の位置をランダムに決める（0〜360の間）
-        y: 0,                                     // 縦の位置は一番上（0）から落ちてくる
-        type: isBomb ? "bomb" : "gift",           // 爆弾ならbomb、そうでなければgift（プレゼント）
-      });                                         // 追加の終わり
-    }, 700);                                      // 700ミリ秒（0.7秒）ごとに実行する設定
+    const spawner = setInterval(() => {
+      if (state !== "playing") return;
+      const isBomb = Math.random() < 0.3;
+      items.push({
+        x: Math.random() * 360,
+        y: 0,
+        type: isBomb ? "bomb" : "gift",
+      });
+    }, 700);
 
-    const timer = setInterval(() => {             // 1秒ごとに次の処理を繰り返す
-      if (state !== "playing") return;            // ゲームが終わっていたら何もしない
-      timeLeft -= 1;                              // 残り時間を1秒減らす
-      if (timeLeft <= 0) {                        // 残り時間が0になったら
-        timeLeft = 0;                             // 表示がマイナスにならんよう0に固定する
-        endGame("時間切れ！");                    // ゲーム終了の処理を呼ぶ（理由は「時間切れ！」）
-      }                                           // ifの終わり
-    }, 1000);                                     // 1000ミリ秒（1秒）ごとに実行する設定
+    const timer = setInterval(() => {
+      if (state !== "playing") return;
+      timeLeft -= 1;
+      if (timeLeft <= 0) {
+        timeLeft = 0;
+        endGame("時間切れ！");
+      }
+    }, 1000);
 
-    function endGame(reason) {                    // ゲームを終わらせる処理。reasonには終わった理由が入る
-      state = "over";                             // 状態を「終了」にする
-      gameOverReason = reason;                    // 終わった理由を保存して、終了画面で表示できるようにする
-      clearInterval(spawner);                     // アイテムを出す繰り返しを止める
-      clearInterval(timer);                       // 残り時間を減らす繰り返しを止める
-    }                                             // endGameの終わり
+    function endGame(reason) {
+      state = "over";
+      gameOverReason = reason;
+      clearInterval(spawner);
+      clearInterval(timer);
+    }
 
-    function update() {                           // 画面を1コマずつ動かす処理（何度も繰り返し呼ばれる）
-      if (state === "playing") {                  // 遊んでいる最中だけ動かす
-        for (const it of items) {                 // リストの中のアイテムを1つずつ取り出す
-          it.y += 3;                              // 1コマごとに、3ピクセル下へ落とす
-        }                                         // forの終わり
+    function update() {
+      if (state === "playing") {
+        for (const it of items) {
+          it.y += 3;
+        }
 
-        items = items.filter((it) => {            // アイテムを1つずつ調べて、残すものだけ新しいリストにする
+        items = items.filter((it) => {
           const hitBox = it.y + 20 >= 360 && it.y <= 400 && it.x + 20 >= x && it.x <= x + 40;
-          // 受け皿（y=360〜400、x〜x+40）と、アイテム（20×20）が重なっているかを判定する
-          if (hitBox) {                           // 重なっていたら（受け取った・触れた）
-            if (it.type === "bomb") {             // 触れたのが爆弾なら
-              endGame("爆弾に触れた！");           // ゲームオーバーにする
-            } else {                              // 触れたのがプレゼントなら
-              score += 1;                         // 点数を1点増やす
-            }                                     // 種類の判定の終わり
-            return false;                         // 当たったアイテムは、リストから消す（残さない）
-          }                                       // hitBoxの終わり
-          return it.y < 400;                      // 当たらず画面の下に出たものは消し、まだ画面内のものは残す
-        });                                       // filterの終わり
-      }                                           // playingの終わり
+          if (hitBox) {
+            if (it.type === "bomb") {
+              endGame("爆弾に触れた！");
+            } else {
+              score += 1;
+            }
+            return false;
+          }
+          return it.y < 400;
+        });
+      }
 
-      draw();                                     // 今の状態を画面に描き直す
-      requestAnimationFrame(update);              // 次の1コマとして、もう一度update()を呼ぶ（なめらかに動く）
-    }                                             // updateの終わり
+      draw();
+      requestAnimationFrame(update);
+    }
 
-    function draw() {                             // 画面に描く処理
-      ctx.clearRect(0, 0, 400, 400);              // 前のコマの絵を全部消して、まっさらにする
+    function draw() {
+      ctx.clearRect(0, 0, 400, 400);
 
       // 赤い受け皿
-      ctx.fillStyle = "red";                      // 次に描く色を赤にする
-      ctx.fillRect(x, 360, 40, 40);               // 赤い四角（受け皿）を、今の位置に描く
+      ctx.fillStyle = "red";
+      ctx.fillRect(x, 360, 40, 40);
 
       // ★ 変更：プレゼントは画像で描く／爆弾は黒い四角のまま
-      for (const it of items) {                   // アイテムを1つずつ取り出して描く
-        if (it.type === "bomb") {                 // 爆弾なら
-          ctx.fillStyle = "black";                // 黒色にする
-          ctx.fillRect(it.x, it.y, 20, 20);       // 黒い四角で描く
-        } else if (giftImg.complete && giftImg.naturalWidth > 0) {  // プレゼントで、画像が読めていたら
-          ctx.drawImage(giftImg, it.x, it.y, 20, 20);  // 画像を20×20で描く
-        } else {                                  // 画像がまだ読めていなければ
+      for (const it of items) {
+        if (it.type === "bomb") {
+          ctx.fillStyle = "black";
+          ctx.fillRect(it.x, it.y, 20, 20);
+        } else if (giftImg.complete && giftImg.naturalWidth > 0) {
+          ctx.drawImage(giftImg, it.x, it.y, 20, 20);
+        } else {
           // 画像がまだ読めない時の代わり（緑の四角）
-          ctx.fillStyle = "green";                // 緑色にする
-          ctx.fillRect(it.x, it.y, 20, 20);       // 緑の四角で描く
-        }                                         // 種類の判定の終わり
-      }                                           // forの終わり
+          ctx.fillStyle = "green";
+          ctx.fillRect(it.x, it.y, 20, 20);
+        }
+      }
 
-      ctx.fillStyle = "black";                    // 文字を黒にする
-      ctx.font = "24px sans-serif";               // 文字の大きさを24px、フォントはゴシック系にする
-      ctx.textAlign = "left";                     // 文字の基準を左にする
-      ctx.fillText("点数: " + score, 10, 30);     // 左上に「点数: ○」を書く
-      ctx.textAlign = "right";                    // 文字の基準を右にする
-      ctx.fillText("残り: " + timeLeft + "秒", 390, 30);  // 右上に残り時間を書く
+      ctx.fillStyle = "black";
+      ctx.font = "24px sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText("点数: " + score, 10, 30);
+      ctx.textAlign = "right";
+      ctx.fillText("残り: " + timeLeft + "秒", 390, 30);
 
-      if (state === "over") {                     // ゲームが終わっていたら、終了画面を重ねる
-        ctx.fillStyle = "rgba(0,0,0,0.6)";        // 半透明の黒で画面全体を暗くする
-        ctx.fillRect(0, 0, 400, 400);             // 画面全体を四角で塗る
-        ctx.fillStyle = "white";                  // 文字を白にする
-        ctx.textAlign = "center";                 // 文字の基準を中央にする
-        ctx.font = "32px sans-serif";             // 大きめの文字にする
-        ctx.fillText("ゲーム終了", 200, 160);     // 「ゲーム終了」を表示する
-        ctx.font = "24px sans-serif";             // 少し小さめの文字にする
-        ctx.fillText(gameOverReason, 200, 200);   // 終わった理由を表示する
-        ctx.fillText("点数: " + score + " 点", 200, 240);  // 最終点数を表示する
-        ctx.font = "18px sans-serif";             // さらに小さい文字にする
-        ctx.fillText("画面をタップでもう一度", 200, 290);  // 再スタートの案内を表示する
-      }                                           // 終了画面の終わり
-    }                                             // drawの終わり
+      if (state === "over") {
+        ctx.fillStyle = "rgba(0,0,0,0.6)";
+        ctx.fillRect(0, 0, 400, 400);
+        ctx.fillStyle = "white";
+        ctx.textAlign = "center";
+        ctx.font = "32px sans-serif";
+        ctx.fillText("ゲーム終了", 200, 160);
+        ctx.font = "24px sans-serif";
+        ctx.fillText(gameOverReason, 200, 200);
+        ctx.fillText("点数: " + score + " 点", 200, 240);
+        ctx.font = "18px sans-serif";
+        ctx.fillText("画面をタップでもう一度", 200, 290);
+      }
+    }
 
-    function moveTo(clientX) {                    // 指やマウスの横位置を受け取って、受け皿を動かす処理
-      const rect = canvas.getBoundingClientRect(); // 画面（キャンバス）が画面上のどこにあるかの位置情報を取る
-      const px = (clientX - rect.left) * (canvas.width / rect.width);  // 指の位置を、キャンバス内の座標に変換する
-      x = Math.max(0, Math.min(360, px - 20));    // 受け皿の中心を指に合わせ、画面の左右からはみ出さないよう0〜360に収める
-    }                                             // moveToの終わり
+    function moveTo(clientX) {
+      const rect = canvas.getBoundingClientRect();
+      const px = (clientX - rect.left) * (canvas.width / rect.width);
+      x = Math.max(0, Math.min(360, px - 20));
+    }
 
-    function restartIfOver() {                    // 終了後にタップされたら、やり直す処理
-      if (state === "over") location.reload();    // 終わっていたら、ページを読み込み直してゲームを最初からにする
-    }                                             // restartIfOverの終わり
+    function restartIfOver() {
+      if (state === "over") location.reload();
+    }
 
-    canvas.addEventListener("touchstart", (e) => {  // タブレットで指が触れた時の処理
-      e.preventDefault();                         // ブラウザ標準の動き（スクロールなど）を止める
-      restartIfOver();                            // 終了していたらやり直す
-      if (state === "playing") moveTo(e.touches[0].clientX);  // 遊んでいる最中なら、指の位置に受け皿を動かす
-    }, { passive: false });                       // 上の「止める」命令を有効にするための設定
+    canvas.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      restartIfOver();
+      if (state === "playing") moveTo(e.touches[0].clientX);
+    }, { passive: false });
 
-    canvas.addEventListener("touchmove", (e) => {   // 指をスライドしている時の処理
-      e.preventDefault();                         // 画面が勝手にスクロールするのを止める
-      if (state === "playing") moveTo(e.touches[0].clientX);  // 遊んでいる最中なら、指の動きに合わせて受け皿を動かす
-    }, { passive: false });                       // 上の「止める」命令を有効にするための設定
+    canvas.addEventListener("touchmove", (e) => {
+      e.preventDefault();
+      if (state === "playing") moveTo(e.touches[0].clientX);
+    }, { passive: false });
 
-    canvas.addEventListener("mousemove", (e) => {   // パソコンでマウスを動かした時の処理
-      if (state === "playing" && e.buttons === 1) moveTo(e.clientX);  // クリックしたまま動かしている時だけ受け皿を動かす
-    });                                           // mousemoveの終わり
+    canvas.addEventListener("mousemove", (e) => {
+      if (state === "playing" && e.buttons === 1) moveTo(e.clientX);
+    });
 
-    canvas.addEventListener("click", restartIfOver);  // クリックされたら、終了中ならやり直す
+    canvas.addEventListener("click", restartIfOver);
 
-    document.addEventListener("keydown", (e) => { // キーボードを押した時の処理
-      if (state !== "playing") return;            // 遊んでいない時は何もしない
-      if (e.key === "ArrowLeft")  x = Math.max(0, x - 10);   // ←キーで左へ10動かす（0より左には行かない）
-      if (e.key === "ArrowRight") x = Math.min(360, x + 10); // →キーで右へ10動かす（360より右には行かない）
-    });                                           // keydownの終わり
+    document.addEventListener("keydown", (e) => {
+      if (state !== "playing") return;
+      if (e.key === "ArrowLeft")  x = Math.max(0, x - 10);
+      if (e.key === "ArrowRight") x = Math.min(360, x + 10);
+    });
 
-    update();                                     // 最初の1コマを動かして、ゲームをスタートさせる
-  </script>                                       // JavaScriptの終わり
-</body>                                           // 画面に出す部分の終わり
-</html>                                           // ページ全体の終わり
+    update();
+  </script>
+</body>
+</html>
